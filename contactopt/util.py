@@ -67,6 +67,54 @@ def forward_mano(mano_model, pose, beta, tforms):
     return verts_homo[:, :, :3], joints_homo[:, :, :3]
 
 
+def fit_pca_to_axang_tensor(mano_pose, mano_beta):
+    """
+    This project uses the MANO model parameterized with 15 PCA components. However, many other approaches use
+    different parameterizations (15 joints, parameterized with 45 axis-angle parameters). This function
+    allows converting between the formats. It first runs the MANO model forwards to get the hand vertices of
+    the initial format. Then an optimization is performed to adjust the 15 PCA parameters of a second MANO model
+    to match the initial vertices. Perhaps there are better ways to do this, but this ensures highest accuracy.
+
+    :param mano_pose: numpy (45) axis angle coordinates
+    :param mano_beta: numpy (10) beta parameters
+    :return: numpy (15) PCA parameters of fitted hand
+    """
+
+    mano_pose = np.array(mano_pose)
+    full_axang = torch.Tensor(mano_pose)
+    mano_model = ManoLayer(mano_root='mano/models', use_pca=True, ncomps=45, side='right', flat_hand_mean=False)
+
+    beta_in = torch.Tensor(mano_beta)
+    mano_model_orig = ManoLayer(mano_root='mano/models', joint_rot_mode="axisang", use_pca=False, center_idx=None, flat_hand_mean=True)
+    _, target_joints = forward_mano(mano_model_orig, full_axang, beta_in, [])
+
+    full_axang[:, 3:] -= mano_model.th_hands_mean
+    pca_mat = mano_model.th_selected_comps.T
+    pca_shape = full_axang[:, 3:].mm(pca_mat)  # Since the HO gt is in full 45 dim axang coords, convert back to PCA shape
+    new_pca_shape = np.zeros((pca_shape.shape[0], 18))
+    new_pca_shape[:, :3] = mano_pose[:, :3]  # set axang
+    new_pca_shape[:, 3:] = pca_shape[0, :15]  # set pca pose
+
+    # Do optimization
+    pca_in = torch.Tensor(new_pca_shape)
+
+    pca_in.requires_grad = True
+    mano_model = ManoLayer(mano_root='mano/models', use_pca=True, ncomps=15, side='right', flat_hand_mean=False)
+    optimizer = torch.optim.Adam([pca_in], lr=0.03, amsgrad=True)  # AMSgrad helps
+    loss_criterion = torch.nn.L1Loss()
+
+    for it in range(400):
+        optimizer.zero_grad()
+        hand_verts, hand_joints = forward_mano(mano_model, pca_in, beta_in, [])  # 2.2ms
+        # vis_pointcloud(hand_joints, target_joints)
+        loss = loss_criterion(hand_joints, target_joints)
+        # print('Opt loss', loss.detach())
+        loss.backward()
+        optimizer.step()
+
+    return pca_in.detach().squeeze(0).numpy()
+
+
 def fit_pca_to_axang(mano_pose, mano_beta):
     """
     This project uses the MANO model parameterized with 15 PCA components. However, many other approaches use
