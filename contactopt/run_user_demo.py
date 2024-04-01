@@ -26,6 +26,7 @@ def create_demo_dataset():
     # However, since this isn't used for this demo, just copy the ho_pred object.
     ho_gt = HandObject()
     ho_gt.load_from_ho(ho_pred)
+    ho_gt.hand_contact = ho_pred.hand_contact
 
     new_sample = dict()
     new_sample['ho_aug'] = ho_pred
