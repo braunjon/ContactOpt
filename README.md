@@ -15,7 +15,22 @@ Physical contact between hands and objects plays a critical role in human grasps
 
 ## Installation
 
-Refer to [installation instructions](docs/INSTALL.md).
+#### Environment Setup
+
+Install the conda environment "contactopt" with:
+```
+conda env create -f environment.yml
+conda activate contactopt
+```
+
+#### Download MANO Model
+Download the Python 3-compatible MANO code from the [manopth website](https://github.com/hassony2/manopth). Copy the `mano` folder from the manopth project to the root of the ContactOpt folder.
+
+Due to license restrictions, the MANO data files must be downloaded from the original [project website](https://mano.is.tue.mpg.de/). Create an account and download 'Models & Code'. Extract the `models` folder to the recently created `mano` directory. The directory structure should be arranged so the following files can be found:
+```
+mano/webuser/lbs.py
+mano/models/MANO_RIGHT.pkl
+```
 
 ## Run ContactOpt on the demo
 
