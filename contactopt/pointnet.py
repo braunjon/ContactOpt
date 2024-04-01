@@ -7,8 +7,9 @@ from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN
 from torch_geometric.datasets import ModelNet
 import torch_geometric.transforms as T
 from torch_geometric.data import DataLoader
-from torch_geometric.nn import PointConv, fps, radius, global_max_pool, knn_interpolate
-
+from torch_geometric.nn.pool import fps, radius, global_max_pool
+from torch_geometric.nn.unpool import knn_interpolate
+from torch_geometric.nn.conv import PointConv
 
 class SAModule(torch.nn.Module):
     def __init__(self, ratio, r, nn):
