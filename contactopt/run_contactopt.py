@@ -35,7 +35,7 @@ def get_newest_checkpoint():
     return model
 
 
-def run_contactopt(args):
+def run_contactopt(args, return_results=True):
     """
     Actually run ContactOpt approach. Estimates target contact with DeepContact,
     then optimizes it. Performs random restarts if selected.
@@ -54,6 +54,8 @@ def run_contactopt(args):
     model.eval()
 
     all_data = list()
+
+    ret_data = []
 
     for idx, data in enumerate(tqdm(test_loader)):
         data_gpu = util.dict_to_device(data, device)
@@ -133,6 +135,13 @@ def run_contactopt(args):
 
             all_data.append({'gt_ho': gt_ho, 'in_ho': in_ho, 'out_ho': out_ho})
 
+        ret_data.append({
+            "out_pose": out_pose.cpu().detach().numpy(),
+            "out_mTc": out_mTc.cpu().detach().numpy(),
+            "obj_rot": obj_rot.cpu().detach().numpy(),
+            "hand_contact_target": hand_contact_target.cpu().detach().numpy()
+        })
+
         if args.vis:
             show_optimization(data, opt_state, hand_contact_target.detach().cpu().numpy(), obj_contact_upscale.detach().cpu().numpy(),
                               is_video=args.video, vis_method=args.vis_method)
@@ -140,9 +149,19 @@ def run_contactopt(args):
         if idx >= args.partial > 0:   # Speed up for eval
             break
 
-    out_file = 'data/optimized_{}.pkl'.format(args.split)
-    print('Saving to {}. Len {}'.format(out_file, len(all_data)))
-    pickle.dump(all_data, open(out_file, 'wb'))
+    if return_results:
+        ret_data_out = {}
+        for k in ret_data[0].keys():
+            v_list = []
+            for i in range(len(ret_data)):
+                v_list.append(ret_data[i][k])
+            ret_data_out[k] = np.vstack(v_list)
+
+        return ret_data_out
+    else:
+        out_file = 'data/optimized_{}.pkl'.format(args.split)
+        print('Saving to {}. Len {}'.format(out_file, len(all_data)))
+        pickle.dump(all_data, open(out_file, 'wb'))
 
 
 if __name__ == '__main__':
